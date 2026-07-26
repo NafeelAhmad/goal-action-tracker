@@ -1,0 +1,18 @@
+# Virtual Environment
+venv/
+.venv/
+env/
+
+# Environment / Secret Files
+.env
+.env.*
+
+# Python Cache & Database Files
+__pycache__/
+*.pyc
+*.db
+*.sqlite3
+
+# OS Specific Files
+.DS_Store
+Thumbs.db
