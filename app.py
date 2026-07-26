@@ -152,7 +152,7 @@ if not df.empty:
     
     # Display Daily Stacked Bar Chart across the week
     st.bar_chart(pivot_df)
-
+    st.dataframe(daily_summary[["date", "category", "Time Spent (DD:HH:MM:SS)"]], use_container_width=True)
 else:
     st.write("No tracked time recorded yet.")
 
@@ -174,5 +174,5 @@ cursor.execute("DELETE FROM sessions")
 conn.commit()
 
     # Display Detailed Daily Table
-    st.dataframe(daily_summary[["date", "category", "Time Spent (DD:HH:MM:SS)"]], use_container_width=True)
+    
 
