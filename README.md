@@ -1,6 +1,3 @@
-# goal-action-tracker
-
-
 # Goal & Action Tracker
 
 A Streamlit-based web application designed to track and categorize daily time expenditure across distinct activity streams. The app uses SQLite for persistent storage and displays real-time metrics along with historical analytics.
