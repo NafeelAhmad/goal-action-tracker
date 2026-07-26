@@ -103,27 +103,53 @@ st.subheader("📊 Time Summary")
 df = pd.read_sql_query("SELECT * FROM sessions", conn)
 
 if not df.empty:
-    # Handles both seconds or legacy minutes
+    # Ensure total seconds column exists
     if "duration_seconds" in df.columns:
         df["total_sec"] = df["duration_seconds"].fillna(0)
     else:
         df["total_sec"] = df["duration_minutes"].fillna(0) * 60
 
-    # Calculate exact totals in seconds
-    cat_a_sec = df[df["category"].str.contains("Category A")]["total_sec"].sum()
-    cat_b_sec = df[df["category"].str.contains("Category B")]["total_sec"].sum()
-    cat_c_sec = df[df["category"].str.contains("Category C")]["total_sec"].sum()
-    
-    # Display formatted metric cards: DD:HH:MM:SS
-    m1, m2, m3 = st.columns(3)
-    m1.metric("Progressive (Goal)", format_seconds(cat_a_sec))
-    m2.metric("Pause (Hold)", format_seconds(cat_b_sec))
-    m3.metric("Penalty (Loss)", format_seconds(cat_c_sec))
+    # Parse start_time to date string (YYYY-MM-DD)
+    df["start_dt"] = pd.to_datetime(df["start_time"])
+    df["date"] = df["start_dt"].dt.strftime("%Y-%m-%d")
 
-    # Data Table displaying DD:HH:MM:SS format
-    summary = df.groupby("category")["total_sec"].sum().reset_index()
-    summary["Time Spent (DD:HH:MM:SS)"] = summary["total_sec"].apply(format_seconds)
-    summary["Hours"] = (summary["total_sec"] / 3600.0).round(2)
+    # Filter Options: Today, Last 7 Days, All Time
+    st.markdown("### 🗓️ View Range")
+    time_filter = st.radio("Select View:", ["Today", "Last 7 Days", "All Time"], horizontal=True)
+
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    seven_days_ago = (datetime.now() - timedelta(days=7)).strftime("%Y-%m-%d")
+
+    if time_filter == "Today":
+        filtered_df = df[df["date"] == today_str]
+    elif time_filter == "Last 7 Days":
+        filtered_df = df[df["date"] >= seven_days_ago]
+    else:
+        filtered_df = df
+
+    # Display Top Metrics for Selected Range
+    cat_a_sec = filtered_df[filtered_df["category"].str.contains("Category A")]["total_sec"].sum()
+    cat_b_sec = filtered_df[filtered_df["category"].str.contains("Category B")]["total_sec"].sum()
+    cat_c_sec = filtered_df[filtered_df["category"].str.contains("Category C")]["total_sec"].sum()
+
+    m1, m2, m3 = st.columns(3)
+    m1.metric("Cat A (Goal)", format_seconds(cat_a_sec))
+    m2.metric("Cat B (Hold)", format_seconds(cat_b_sec))
+    m3.metric("Cat C (Loss)", format_seconds(cat_c_sec))
+
+    # --- DAILY BREAKDOWN TABLE & CHART ---
+    st.markdown("### 📆 Day-by-Day Breakdown")
+    daily_summary = filtered_df.groupby(["date", "category"])["total_sec"].sum().reset_index()
+    daily_summary["Time Spent (DD:HH:MM:SS)"] = daily_summary["total_sec"].apply(format_seconds)
+    daily_summary["Hours"] = (daily_summary["total_sec"] / 3600.0).round(2)
+
+    # Pivot table so dates are rows and categories are columns
+    pivot_df = daily_summary.pivot(index="date", columns="category", values="Hours").fillna(0)
     
-    st.dataframe(summary[["category", "Time Spent (DD:HH:MM:SS)"]], use_container_width=True)
-    st.bar_chart(data=summary, x="category", y="Hours")
+    # Display Daily Stacked Bar Chart across the week
+    st.bar_chart(pivot_df)
+
+    # Display Detailed Daily Table
+    st.dataframe(daily_summary[["date", "category", "Time Spent (DD:HH:MM:SS)"]], use_container_width=True)
+else:
+    st.write("No tracked time recorded yet.")
