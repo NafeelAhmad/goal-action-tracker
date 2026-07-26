@@ -1,32 +1,27 @@
 import streamlit as st
 import sqlite3
 import pandas as pd
-from datetime import datetime
-from datetime import timedelta
-
+from datetime import datetime, timedelta
 
 def format_seconds(total_seconds):
     if not total_seconds or total_seconds <= 0:
         return "00:00:00:00"
     
     total_sec = int(total_seconds)
-    
     days = total_sec // 86400
     hours = (total_sec % 86400) // 3600
     minutes = (total_sec % 3600) // 60
     seconds = total_sec % 60
     
-    # Strict Format: DD:HH:MM:SS
     return f"{days:02d}:{hours:02d}:{minutes:02d}:{seconds:02d}"
-    
+
 st.set_page_config(page_title="Action Tracker", page_icon="⚡", layout="centered")
 
-# --- DATABASE SETUP ---
 # --- DATABASE SETUP ---
 conn = sqlite3.connect("tracker.db", check_same_thread=False)
 cursor = conn.cursor()
 
-# Create table if it doesn't exist
+# 1. Main sessions table
 cursor.execute("""
     CREATE TABLE IF NOT EXISTS sessions (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -36,57 +31,71 @@ cursor.execute("""
         duration_seconds REAL
     )
 """)
+
+# 2. Table to store currently active state across mobile tab switches
+cursor.execute("""
+    CREATE TABLE IF NOT EXISTS active_state (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        category TEXT,
+        start_time TEXT
+    )
+""")
 conn.commit()
 
-# Self-healing check: Ensure duration_seconds column exists in existing DB
-cursor.execute("PRAGMA table_info(sessions)")
-columns = [col[1] for col in cursor.fetchall()]
+# --- DATABASE STATE FUNCTIONS ---
+def get_active_state():
+    cursor.execute("SELECT category, start_time FROM active_state WHERE id = 1")
+    row = cursor.fetchone()
+    if row:
+        return row[0], datetime.strptime(row[1], "%Y-%m-%d %H:%M:%S")
+    return None, None
 
-if "duration_seconds" not in columns:
-    if "duration_minutes" in columns:
-        cursor.execute("ALTER TABLE sessions RENAME COLUMN duration_minutes TO duration_seconds")
-    else:
-        cursor.execute("ALTER TABLE sessions ADD COLUMN duration_seconds REAL")
+def set_active_state(category, start_dt):
+    dt_str = start_dt.strftime("%Y-%m-%d %H:%M:%S")
+    cursor.execute(
+        "INSERT OR REPLACE INTO active_state (id, category, start_time) VALUES (1, ?, ?)",
+        (category, dt_str)
+    )
     conn.commit()
 
-# --- APP STATE ---
-if "active_category" not in st.session_state:
-    st.session_state.active_category = None
-if "start_time" not in st.session_state:
-    st.session_state.start_time = None
-
-# --- FUNCTIONS ---
-def start_timer(category):
-    # Stop existing timer if running
-    if st.session_state.active_category:
-        stop_timer()
-    st.session_state.active_category = category
-    st.session_state.start_time = datetime.now()
+def clear_active_state():
+    cursor.execute("DELETE FROM active_state WHERE id = 1")
+    conn.commit()
 
 def stop_timer():
-    if st.session_state.active_category and st.session_state.start_time:
-        end_time = datetime.now()
-        duration_sec = (end_time - st.session_state.start_time).total_seconds()
+    active_cat, start_dt = get_active_state()
+    if active_Progressivend start_dt:
+        end_dt = datetime.now()
+        duration_sec = (end_dt - start_dt).total_seconds()
         
         cursor.execute(
             "INSERT INTO sessions (category, start_time, end_time, duration_seconds) VALUES (?, ?, ?, ?)",
             (
-                st.session_state.active_category,
-                st.session_state.start_time.strftime("%Y-%m-%d %H:%M:%S"),
-                end_time.strftime("%Y-%m-%d %H:%M:%S"),
+                active_cat,
+                start_dt.strftime("%Y-%m-%d %H:%M:%S"),
+                end_dt.strftime("%Y-%m-%d %H:%M:%S"),
                 round(duration_sec, 2)
             )
         )
         conn.commit()
-    st.session_state.active_category = None
-    st.session_state.start_time = None
+        clear_active_state()
+
+def start_timer(category):
+    # Stop existing active timer if running
+    stop_timer()
+    # Save new start timestamp instantly to database
+    set_active_state(category, datetime.now())
 
 # --- UI HEADER ---
 st.title("⚡ Action & Goal Tracker")
 
+active_category, active_start_time = get_active_state()
+
 # --- ACTIVE STATUS ---
-if st.session_state.active_category:
-    st.info(f"🟢 **Currently Active:** {st.session_state.active_category}")
+if active_category and active_start_time:
+    elapsed_sec = (datetime.now() - active_start_time).total_seconds()
+    st.info(f"🟢 **Currently Active:** {active_category}\n\n⏱️ **Running Time:** {format_seconds(elapsed_sec)}")
+    
     if st.button("⏹️ Stop / Pause Current Activity", use_container_width=True):
         stop_timer()
         st.rerun()
@@ -100,7 +109,7 @@ st.subheader("Switch Activity")
 col1, col2, col3 = st.columns(3)
 
 with col1:
-    if st.button("🚀 Progressive\n(Agentic AI Developer)", use_container_width=True):
+    if st.button("🚀 Progressive\n(Agentic AI)", use_container_width=True):
         start_timer("Category A (Working Towards Goal)")
         st.rerun()
 
@@ -121,17 +130,14 @@ st.subheader("📊 Time Summary")
 df = pd.read_sql_query("SELECT * FROM sessions", conn)
 
 if not df.empty:
-    # Ensure duration_seconds column is used directly without multiplying by 60
     if "duration_seconds" in df.columns:
         df["total_sec"] = df["duration_seconds"].fillna(0)
     else:
         df["total_sec"] = df["duration_minutes"].fillna(0)
 
-    # Parse start_time to date string (YYYY-MM-DD)
     df["start_dt"] = pd.to_datetime(df["start_time"])
     df["date"] = df["start_dt"].dt.strftime("%Y-%m-%d")
 
-    # Filter Options: Today, Last 7 Days, All Time
     st.markdown("### 🗓️ View Range")
     time_filter = st.radio("Select View:", ["Today", "Last 7 Days", "All Time"], horizontal=True)
 
@@ -145,7 +151,6 @@ if not df.empty:
     else:
         filtered_df = df
 
-    # Display Top Metrics for Selected Range
     cat_a_sec = filtered_df[filtered_df["category"].str.contains("Category A")]["total_sec"].sum()
     cat_b_sec = filtered_df[filtered_df["category"].str.contains("Category B")]["total_sec"].sum()
     cat_c_sec = filtered_df[filtered_df["category"].str.contains("Category C")]["total_sec"].sum()
@@ -153,18 +158,14 @@ if not df.empty:
     m1, m2, m3 = st.columns(3)
     m1.metric("Progressive (Goal)", format_seconds(cat_a_sec))
     m2.metric("Pause (Hold)", format_seconds(cat_b_sec))
-    m3.metric("Penatlty (Loss)", format_seconds(cat_c_sec))
+    m3.metric("Penalty (Loss)", format_seconds(cat_c_sec))
 
-    # --- DAILY BREAKDOWN TABLE & CHART ---
     st.markdown("### 📆 Day-by-Day Breakdown")
     daily_summary = filtered_df.groupby(["date", "category"])["total_sec"].sum().reset_index()
     daily_summary["Time Spent (DD:HH:MM:SS)"] = daily_summary["total_sec"].apply(format_seconds)
     daily_summary["Hours"] = (daily_summary["total_sec"] / 3600.0).round(2)
 
-    # Pivot table so dates are rows and categories are columns
     pivot_df = daily_summary.pivot(index="date", columns="category", values="Hours").fillna(0)
-    
-    # Display Daily Stacked Bar Chart across the week
     st.bar_chart(pivot_df)
     st.dataframe(daily_summary[["date", "category", "Time Spent (DD:HH:MM:SS)"]], use_container_width=True)
 else:
