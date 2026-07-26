@@ -82,17 +82,17 @@ st.subheader("Switch Activity")
 col1, col2, col3 = st.columns(3)
 
 with col1:
-    if st.button("🚀 Cat A\n(Agentic AI)", use_container_width=True):
+    if st.button("🚀 Progressive\n(Agentic AI)", use_container_width=True):
         start_timer("Category A (Working Towards Goal)")
         st.rerun()
 
 with col2:
-    if st.button("⏸️ Cat B\n(Office/Hold)", use_container_width=True):
+    if st.button("⏸️ Pause\n(Office/Hold)", use_container_width=True):
         start_timer("Category B (Put On Hold)")
         st.rerun()
 
 with col3:
-    if st.button("🛑 Cat C\n(Distractions)", use_container_width=True):
+    if st.button("🛑 Penalty\n(Distractions)", use_container_width=True):
         start_timer("Category C (Negative/Distraction)")
         st.rerun()
 
@@ -116,9 +116,9 @@ if not df.empty:
     
     # Display formatted metric cards: DD:HH:MM:SS
     m1, m2, m3 = st.columns(3)
-    m1.metric("Cat A (Goal)", format_seconds(cat_a_sec))
-    m2.metric("Cat B (Hold)", format_seconds(cat_b_sec))
-    m3.metric("Cat C (Loss)", format_seconds(cat_c_sec))
+    m1.metric("Progressive (Goal)", format_seconds(cat_a_sec))
+    m2.metric("Pause (Hold)", format_seconds(cat_b_sec))
+    m3.metric("Penalty (Loss)", format_seconds(cat_c_sec))
 
     # Data Table displaying DD:HH:MM:SS format
     summary = df.groupby("category")["total_sec"].sum().reset_index()
