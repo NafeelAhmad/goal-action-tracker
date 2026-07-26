@@ -4,15 +4,19 @@ import pandas as pd
 from datetime import datetime
 from datetime import timedelta
 
+
 def format_seconds(total_seconds):
     if not total_seconds or total_seconds <= 0:
         return "00:00:00:00"
     
-    td = timedelta(seconds=int(total_seconds))
-    days = td.days
-    hours, remainder = divmod(td.seconds, 3600)
-    minutes, seconds = divmod(remainder, 60)
+    total_sec = int(total_seconds)
     
+    days = total_sec // 86400
+    hours = (total_sec % 86400) // 3600
+    minutes = (total_sec % 3600) // 60
+    seconds = total_sec % 60
+    
+    # Strict Format: DD:HH:MM:SS
     return f"{days:02d}:{hours:02d}:{minutes:02d}:{seconds:02d}"
     
 st.set_page_config(page_title="Action Tracker", page_icon="⚡", layout="centered")
