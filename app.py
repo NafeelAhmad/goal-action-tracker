@@ -153,6 +153,9 @@ if not df.empty:
     # Display Daily Stacked Bar Chart across the week
     st.bar_chart(pivot_df)
 
+else:
+    st.write("No tracked time recorded yet.")
+
 # --- DATABASE SETUP ---
 conn = sqlite3.connect("tracker.db", check_same_thread=False)
 cursor = conn.cursor()
@@ -172,5 +175,4 @@ conn.commit()
 
     # Display Detailed Daily Table
     st.dataframe(daily_summary[["date", "category", "Time Spent (DD:HH:MM:SS)"]], use_container_width=True)
-else:
-    st.write("No tracked time recorded yet.")
+
