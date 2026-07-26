@@ -22,8 +22,11 @@ def format_seconds(total_seconds):
 st.set_page_config(page_title="Action Tracker", page_icon="⚡", layout="centered")
 
 # --- DATABASE SETUP ---
+# --- DATABASE SETUP ---
 conn = sqlite3.connect("tracker.db", check_same_thread=False)
 cursor = conn.cursor()
+
+# Create table if it doesn't exist
 cursor.execute("""
     CREATE TABLE IF NOT EXISTS sessions (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -34,6 +37,17 @@ cursor.execute("""
     )
 """)
 conn.commit()
+
+# Self-healing check: Ensure duration_seconds column exists in existing DB
+cursor.execute("PRAGMA table_info(sessions)")
+columns = [col[1] for col in cursor.fetchall()]
+
+if "duration_seconds" not in columns:
+    if "duration_minutes" in columns:
+        cursor.execute("ALTER TABLE sessions RENAME COLUMN duration_minutes TO duration_seconds")
+    else:
+        cursor.execute("ALTER TABLE sessions ADD COLUMN duration_seconds REAL")
+    conn.commit()
 
 # --- APP STATE ---
 if "active_category" not in st.session_state:
