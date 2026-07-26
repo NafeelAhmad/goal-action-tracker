@@ -30,7 +30,7 @@ cursor.execute("""
         category TEXT,
         start_time TEXT,
         end_time TEXT,
-        duration_minutes REAL
+        duration_seconds REAL
     )
 """)
 conn.commit()
@@ -52,15 +52,15 @@ def start_timer(category):
 def stop_timer():
     if st.session_state.active_category and st.session_state.start_time:
         end_time = datetime.now()
-        duration = (end_time - st.session_state.start_time).total_seconds()
+        duration_sec = (end_time - st.session_state.start_time).total_seconds()
         
         cursor.execute(
-            "INSERT INTO sessions (category, start_time, end_time, duration_minutes) VALUES (?, ?, ?, ?)",
+            "INSERT INTO sessions (category, start_time, end_time, duration_seconds) VALUES (?, ?, ?, ?)",
             (
                 st.session_state.active_category,
                 st.session_state.start_time.strftime("%Y-%m-%d %H:%M:%S"),
                 end_time.strftime("%Y-%m-%d %H:%M:%S"),
-                round(duration, 2)
+                round(duration_sec, 2)
             )
         )
         conn.commit()
@@ -107,11 +107,11 @@ st.subheader("📊 Time Summary")
 df = pd.read_sql_query("SELECT * FROM sessions", conn)
 
 if not df.empty:
-    # Ensure total seconds column exists
+    # Ensure duration_seconds column is used directly without multiplying by 60
     if "duration_seconds" in df.columns:
         df["total_sec"] = df["duration_seconds"].fillna(0)
     else:
-        df["total_sec"] = df["duration_minutes"].fillna(0) * 60
+        df["total_sec"] = df["duration_minutes"].fillna(0)
 
     # Parse start_time to date string (YYYY-MM-DD)
     df["start_dt"] = pd.to_datetime(df["start_time"])
@@ -155,8 +155,3 @@ if not df.empty:
     st.dataframe(daily_summary[["date", "category", "Time Spent (DD:HH:MM:SS)"]], use_container_width=True)
 else:
     st.write("No tracked time recorded yet.")
-
-
-    # Display Detailed Daily Table
-    
-
