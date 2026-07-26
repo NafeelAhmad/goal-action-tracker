@@ -64,7 +64,7 @@ def clear_active_state():
 
 def stop_timer():
     active_cat, start_dt = get_active_state()
-    if active_Progressivend start_dt:
+    if active_cat and start_dt:
         end_dt = datetime.now()
         duration_sec = (end_dt - start_dt).total_seconds()
         
